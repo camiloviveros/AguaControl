@@ -111,7 +111,7 @@ export async function POST(request: Request) {
     
     // Aumentar el timeout para dar más tiempo a la API
     const timeoutMs = process.env.DEEPSEEK_TIMEOUT ? 
-      parseInt(process.env.DEEPSEEK_TIMEOUT) : 15000; // Aumentado a 15 segundos
+      parseInt(process.env.DEEPSEEK_TIMEOUT) : 20000; // Aumentado a 20 segundos
     
     console.log(`Timeout configurado a ${timeoutMs}ms`);
     
