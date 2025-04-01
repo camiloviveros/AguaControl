@@ -1,71 +1,88 @@
 import { NextResponse } from 'next/server';
 
-// Caché renovada con límite automático y tiempo de expiración
-let responseCache = new Map();
+// Definir interfaces para tipos
+interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+interface ChatRequest {
+  message: string;
+  history: ChatMessage[];
+}
+
+// Caché renovada con mejor gestión
+let responseCache = new Map<string, string>();
 let lastCacheCleanup = Date.now();
 
 // Función para limpiar la caché
-const cleanupCache = () => {
-  // Limpiar caché cada 60 minutos o si es demasiado grande
+const cleanupCache = (): void => {
+  // Limpiar caché cada hora o si es demasiado grande
   const now = Date.now();
-  if (now - lastCacheCleanup > 60 * 60 * 1000 || responseCache.size > 80) {
+  if (now - lastCacheCleanup > 60 * 60 * 1000 || responseCache.size > 50) {
     console.log(`Limpiando caché. Tamaño antes: ${responseCache.size}`);
-    
-    // Si es muy grande, conserva solo las 30 entradas más recientes
-    if (responseCache.size > 80) {
-      const entries = Array.from(responseCache.entries());
-      const recentEntries = entries.slice(-30);
-      responseCache.clear();
-      for (const [key, value] of recentEntries) {
-        responseCache.set(key, value);
-      }
-    } else {
-      responseCache.clear();
-    }
-    
+    responseCache.clear();
     lastCacheCleanup = now;
-    console.log(`Caché limpiada. Nuevo tamaño: ${responseCache.size}`);
+    console.log('Caché limpiada completamente');
   }
 };
 
-export async function POST(request: Request) {
+// Implementación de respuesta de fallback para cuando la API falla
+const getFallbackResponse = (query: string): string => {
+  const lowercaseQuery = query.toLowerCase();
+  
+  if (lowercaseQuery.includes('ahorro') || lowercaseQuery.includes('ahorrar')) {
+    return "💧 Para ahorrar agua, puedes instalar aireadores en tus grifos, reducir el tiempo de ducha a 5 minutos y reparar fugas. Estos cambios simples pueden reducir tu consumo hasta en un 30%.";
+  }
+  
+  if (lowercaseQuery.includes('fuga') || lowercaseQuery.includes('goteo')) {
+    return "Una fuga puede desperdiciar hasta 30 litros al día. Para detectarlas, revisa tus grifos y cisternas regularmente, y verifica tu medidor cuando no estés usando agua. Si el medidor sigue corriendo, probablemente tienes una fuga.";
+  }
+  
+  if (lowercaseQuery.includes('agua') || lowercaseQuery.includes('consumo')) {
+    return "El agua es un recurso esencial que debemos conservar. Una persona promedio consume entre 100-150 litros diarios. Puedes reducir este consumo con dispositivos eficientes y buenos hábitos como cerrar el grifo mientras te cepillas los dientes.";
+  }
+  
+  return "Como asistente especializado en gestión de agua, puedo ayudarte con consejos para reducir tu consumo, detectar fugas, interpretar tu factura o resolver dudas sobre uso eficiente del agua. ¿Sobre qué tema específico necesitas información?";
+};
+
+export async function POST(request: Request): Promise<NextResponse> {
   // Limpiar caché si es necesario
   cleanupCache();
-  
-  // Para debuggear posibles errores
-  let requestBody = null;
   
   try {
     console.log('Inicio de solicitud a la API de chat');
     
     // Verificar si la API key está configurada
     if (!process.env.DEEPSEEK_API_KEY) {
-      console.error('Error: La API key de DeepSeek no está configurada');
-      return NextResponse.json(
-        { error: 'La API key de DeepSeek no está configurada. Contacta al administrador.' },
-        { status: 500 }
-      );
+      console.error('ERROR: La API key de DeepSeek no está configurada');
+      // Usar respuesta de fallback en lugar de error
+      return NextResponse.json({ 
+        message: "Soy tu asistente para gestión de agua. Actualmente estoy en modo de mantenimiento, pero puedo ofrecerte información básica. ¿En qué puedo ayudarte?",
+        status: "fallback"
+      });
     }
 
     // Obtener los datos de la solicitud
-    requestBody = await request.json();
-    const { message, history } = requestBody;
+    const requestData = await request.json().catch((e: Error) => {
+      console.error('ERROR: JSON inválido en la solicitud', e);
+      return null;
+    }) as ChatRequest | null;
     
-    if (!message) {
-      console.error('Error: Mensaje vacío en la solicitud');
+    if (!requestData || !requestData.message) {
+      console.error('ERROR: Datos de solicitud inválidos');
       return NextResponse.json(
-        { error: 'El mensaje no puede estar vacío.' },
+        { message: "Por favor, envía una pregunta válida sobre gestión de agua." },
         { status: 400 }
       );
     }
     
-    console.log(`Procesando mensaje: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);
+    const { message, history = [] } = requestData;
+    console.log(`Mensaje recibido: "${message.substring(0, 30)}..."`);
     
-    // Crear una clave única para la caché con limitación de longitud
-    const cacheKey = message.trim().toLowerCase().substring(0, 100);
-    
+    // Usar respuesta en caché si existe (con manejo de errores)
     try {
-      // Verificar si ya tenemos una respuesta en caché
+      const cacheKey = message.trim().toLowerCase().substring(0, 100);
       if (responseCache.has(cacheKey)) {
         console.log('Usando respuesta en caché');
         return NextResponse.json({ 
@@ -74,162 +91,129 @@ export async function POST(request: Request) {
         });
       }
     } catch (cacheError) {
-      console.error('Error al acceder a la caché:', cacheError);
-      // Si hay error en la caché, la limpiamos completamente
+      console.error('ERROR al verificar caché:', cacheError);
       responseCache.clear();
-      console.log('Caché reiniciada por error');
     }
 
-    // Limitar el historial a los últimos 3 mensajes para mejorar velocidad
-    const limitedHistory = history?.slice?.(-3) || [];
-    
-    // Convertir el historial al formato requerido por DeepSeek
-    const formattedMessages = limitedHistory.map((msg: { role: string; content: string }) => ({
+    // Historia limitada para rendimiento
+    const limitedHistory = history.slice(-2);
+    const formattedMessages = limitedHistory.map((msg: ChatMessage) => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content,
     }));
 
-    // Sistema de mensajes con instrucciones completas pero optimizado
     const systemMessage = {
       role: 'system',
       content: `Eres un asistente especializado en gestión y ahorro de consumo de agua. 
-      Tu objetivo es ayudar a los usuarios a reducir su consumo de agua, interpretar sus facturas, 
-      proporcionar consejos sobre fugas, tuberías y responder preguntas sobre el uso eficiente del agua.
+      Ayudas a reducir el consumo, interpretar facturas, detectar fugas y optimizar el uso del agua.
       
-      Límites:
-      - Solo responde preguntas relacionadas con el agua, su consumo, ahorro, facturación y temas afines.
-      - Si te preguntan sobre otros temas, recuerda amablemente que eres un asistente especializado en agua.
-      - NO uses etiquetas HTML en tus respuestas como <br> o <strong>. Usa formato de texto plano.
-      - Usa ** para negritas y espacios en blanco para separar párrafos.
+      RESPONDE SOLO sobre agua, consumo, ahorro, facturación y temas relacionados.
+      Si preguntan sobre otros temas, recuerda amablemente que eres especialista en agua.
       
-      IMPORTANTE: Tus respuestas deben ser concisas y directas, no más de 3-4 frases para preguntas simples.
-      Usa viñetas con - para listas y destaca con 💧 los consejos más importantes.`
+      Usa formato de texto simple, con ** para énfasis, NO uses HTML.
+      Respuestas concisas de 3-4 frases para preguntas simples.
+      Usa - para listas y 💧 para consejos importantes.`
     };
 
-    // Configurar la solicitud a la API de DeepSeek con parámetros optimizados para velocidad
-    const deepseekApiEndpoint = 'https://api.deepseek.com/v1/chat/completions';
-    
-    // Aumentar el timeout para dar más tiempo a la API
+    // Información de configuración
+    const apiEndpoint = 'https://api.deepseek.com/v1/chat/completions';
     const timeoutMs = process.env.DEEPSEEK_TIMEOUT ? 
-      parseInt(process.env.DEEPSEEK_TIMEOUT) : 20000; // Aumentado a 20 segundos
+      parseInt(process.env.DEEPSEEK_TIMEOUT) : 12000;
     
-    console.log(`Timeout configurado a ${timeoutMs}ms`);
-    
+    // Configuración para la solicitud con timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('Timeout alcanzado, abortando solicitud');
+      console.log('TIMEOUT: Abortando solicitud a DeepSeek');
       controller.abort();
     }, timeoutMs);
     
-    // Preparar el cuerpo de la solicitud
-    const requestPayload = {
+    // Payload para la API
+    const apiPayload = {
       model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       messages: [
         systemMessage,
         ...formattedMessages,
         { role: 'user', content: message }
       ],
-      max_tokens: 300,       // Reducido para respuestas más rápidas
-      temperature: 0.7,      // Balanceado entre creatividad y coherencia
-      top_p: 0.9,            // Mantiene coherencia
-      presence_penalty: 0,   // Eliminado para mayor velocidad
-      frequency_penalty: 0   // Eliminado para mayor velocidad
+      max_tokens: 300,
+      temperature: 0.7,
+      top_p: 0.9
     };
     
     console.log('Enviando solicitud a DeepSeek API');
     
-    // Implementar reintentos para mayor robustez
-    let response = null;
-    let retries = 0;
-    const maxRetries = 2;
-    
-    while (retries <= maxRetries) {
-      try {
-        response = await fetch(deepseekApiEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-          },
-          body: JSON.stringify(requestPayload),
-          signal: controller.signal
-        });
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify(apiPayload),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`ERROR: DeepSeek API respondió con ${response.status}`, errorData);
         
-        break; // Si la solicitud fue exitosa, salimos del bucle
-      } catch (fetchError) {
-        retries++;
-        if (retries > maxRetries) throw fetchError;
-        
-        console.log(`Reintento ${retries}/${maxRetries} después de error de fetch`);
-        // Esperar brevemente antes de reintentar
-        await new Promise(r => setTimeout(r, 500));
+        // Usar respuesta de fallback
+        const fallbackResponse = getFallbackResponse(message);
+        return NextResponse.json({ message: fallbackResponse, status: "fallback" });
       }
+      
+      const data = await response.json();
+      console.log('Respuesta recibida correctamente de DeepSeek');
+      
+      // Procesar respuesta
+      let generatedMessage = data.choices?.[0]?.message?.content || 
+        'No he podido generar una respuesta. ¿Podrías reformular tu pregunta sobre ahorro de agua?';
+      
+      // Limpiar formato HTML que pudiera colarse
+      generatedMessage = generatedMessage
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/<br>/g, ' ')
+        .replace(/<br><br>/g, ' ')
+        .replace(/<strong>(.*?)<\/strong>/g, '$1')
+        .replace(/<[^>]*>/g, '');
+      
+      // Guardar en caché (solo respuestas no fallback)
+      if (!generatedMessage.includes('No he podido generar') && generatedMessage.length < 1500) {
+        try {
+          const cacheKey = message.trim().toLowerCase().substring(0, 100);
+          responseCache.set(cacheKey, generatedMessage);
+          console.log('Respuesta guardada en caché');
+        } catch (cacheError) {
+          console.error('ERROR al guardar en caché:', cacheError);
+        }
+      }
+      
+      return NextResponse.json({ message: generatedMessage });
+      
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      console.error('ERROR durante la solicitud a DeepSeek:', fetchError);
+      
+      // Verificar si es un error de timeout
+      const error = fetchError as Error;
+      if (error.name === 'AbortError') {
+        console.log('La solicitud fue abortada por timeout');
+      }
+      
+      // Usar respuesta de fallback
+      const fallbackResponse = getFallbackResponse(message);
+      return NextResponse.json({ message: fallbackResponse, status: "fallback" });
     }
     
-    // Limpiar el timeout ya que la respuesta fue recibida
-    clearTimeout(timeoutId);
+  } catch (error) {
+    console.error('ERROR general en el procesamiento:', error);
     
-    if (!response) {
-      throw new Error('No se recibió respuesta de la API después de reintentos');
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorDetail = 'Detalles no disponibles';
-      
-      try {
-        const errorData = JSON.parse(errorText);
-        errorDetail = JSON.stringify(errorData);
-      } catch (e) {
-        errorDetail = errorText.substring(0, 200);
-      }
-      
-      throw new Error(`Error de la API de DeepSeek: ${response.status} - ${errorDetail}`);
-    }
-
-    const data = await response.json();
-    console.log('Respuesta recibida de DeepSeek API');
-
-    // Obtener la respuesta generada
-    let generatedMessage = data.choices?.[0]?.message?.content || 
-      'Lo siento, no he podido generar una respuesta. Por favor, intenta de nuevo.';
-      
-    // Procesar la respuesta para aplicar formato Markdown a texto plano
-    generatedMessage = generatedMessage
-      .replace(/\*\*(.*?)\*\*/g, '$1')     // Quitar asteriscos de negritas
-      .replace(/<br>/g, ' ')               // Reemplazar <br> con espacios
-      .replace(/<br><br>/g, ' ')           // Reemplazar <br><br> con espacios
-      .replace(/<strong>(.*?)<\/strong>/g, '$1') // Quitar etiquetas strong
-      .replace(/<[^>]*>/g, '');            // Limpiar cualquier otra etiqueta HTML
-
-    // Guardar en caché solo si no es un mensaje de error y no es muy largo
-    if (!generatedMessage.includes('Lo siento') && generatedMessage.length < 2000) {
-      try {
-        responseCache.set(cacheKey, generatedMessage);
-        console.log(`Respuesta guardada en caché. Tamaño actual: ${responseCache.size}`);
-      } catch (cacheError) {
-        console.error('Error al guardar en caché:', cacheError);
-        // Si hay error al guardar en caché, la limpiamos
-        responseCache.clear();
-      }
-    }
-
-    // Devolver la respuesta
-    return NextResponse.json({ message: generatedMessage });
-  } catch (error: any) {
-    console.error('Error al procesar la solicitud:', {
-      message: error?.message,
-      stack: error?.stack,
-      requestBody: requestBody ? JSON.stringify(requestBody).substring(0, 200) : 'No disponible'
+    // Respuesta genérica de error
+    return NextResponse.json({ 
+      message: "Disculpa, estoy teniendo problemas para procesar tu solicitud. Puedo ayudarte con consejos básicos de ahorro de agua como: cerrar el grifo mientras te cepillas los dientes, duchas más cortas o revisar fugas. ¿Te interesa alguno de estos temas?",
+      status: "error"
     });
-    
-    // Respuesta de error con más información pero simple para el usuario
-    return NextResponse.json(
-      { 
-        error: 'Ocurrió un error al procesar tu solicitud. Por favor, intenta de nuevo.',
-        detail: process.env.NODE_ENV === 'development' ? error?.message : undefined
-      },
-      { status: 500 }
-    );
   }
 }
