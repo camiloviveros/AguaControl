@@ -17,7 +17,6 @@ let lastCacheCleanup = Date.now();
 
 // Función para limpiar la caché
 const cleanupCache = (): void => {
-  // Limpiar caché cada hora o si es demasiado grande
   const now = Date.now();
   if (now - lastCacheCleanup > 60 * 60 * 1000 || responseCache.size > 50) {
     console.log(`Limpiando caché. Tamaño antes: ${responseCache.size}`);
@@ -27,25 +26,6 @@ const cleanupCache = (): void => {
   }
 };
 
-// Implementación de respuesta de fallback para cuando la API falla
-const getFallbackResponse = (query: string): string => {
-  const lowercaseQuery = query.toLowerCase();
-  
-  if (lowercaseQuery.includes('ahorro') || lowercaseQuery.includes('ahorrar')) {
-    return "💧 Para ahorrar agua, puedes instalar aireadores en tus grifos, reducir el tiempo de ducha a 5 minutos y reparar fugas. Estos cambios simples pueden reducir tu consumo hasta en un 30%.";
-  }
-  
-  if (lowercaseQuery.includes('fuga') || lowercaseQuery.includes('goteo')) {
-    return "Una fuga puede desperdiciar hasta 30 litros al día. Para detectarlas, revisa tus grifos y cisternas regularmente, y verifica tu medidor cuando no estés usando agua. Si el medidor sigue corriendo, probablemente tienes una fuga.";
-  }
-  
-  if (lowercaseQuery.includes('agua') || lowercaseQuery.includes('consumo')) {
-    return "El agua es un recurso esencial que debemos conservar. Una persona promedio consume entre 100-150 litros diarios. Puedes reducir este consumo con dispositivos eficientes y buenos hábitos como cerrar el grifo mientras te cepillas los dientes.";
-  }
-  
-  return "Como asistente especializado en gestión de agua, puedo ayudarte con consejos para reducir tu consumo, detectar fugas, interpretar tu factura o resolver dudas sobre uso eficiente del agua. ¿Sobre qué tema específico necesitas información?";
-};
-
 export async function POST(request: Request): Promise<NextResponse> {
   // Limpiar caché si es necesario
   cleanupCache();
@@ -53,50 +33,42 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     console.log('Inicio de solicitud a la API de chat');
     
-    // Verificar si la API key está configurada
-    if (!process.env.DEEPSEEK_API_KEY) {
-      console.error('ERROR: La API key de DeepSeek no está configurada');
-      // Usar respuesta de fallback en lugar de error
-      return NextResponse.json({ 
-        message: "Soy tu asistente para gestión de agua. Actualmente estoy en modo de mantenimiento, pero puedo ofrecerte información básica. ¿En qué puedo ayudarte?",
-        status: "fallback"
-      });
-    }
-
-    // Obtener los datos de la solicitud
-    const requestData = await request.json().catch((e: Error) => {
-      console.error('ERROR: JSON inválido en la solicitud', e);
-      return null;
-    }) as ChatRequest | null;
-    
-    if (!requestData || !requestData.message) {
-      console.error('ERROR: Datos de solicitud inválidos');
+    // Verificar la API key antes de intentar usarla
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey || apiKey.length < 5) {
+      console.error('ERROR: La API key de DeepSeek no está configurada correctamente');
       return NextResponse.json(
-        { message: "Por favor, envía una pregunta válida sobre gestión de agua." },
-        { status: 400 }
+        { 
+          error: 'Error de configuración de la API. Por favor, contacta al administrador.' 
+        },
+        { status: 500 }
       );
     }
     
-    const { message, history = [] } = requestData;
-    console.log(`Mensaje recibido: "${message.substring(0, 30)}..."`);
-    
-    // Usar respuesta en caché si existe (con manejo de errores)
-    try {
-      const cacheKey = message.trim().toLowerCase().substring(0, 100);
-      if (responseCache.has(cacheKey)) {
-        console.log('Usando respuesta en caché');
-        return NextResponse.json({ 
-          message: responseCache.get(cacheKey),
-          cached: true 
-        });
-      }
-    } catch (cacheError) {
-      console.error('ERROR al verificar caché:', cacheError);
-      responseCache.clear();
-    }
+    console.log('API key verificada, longitud:', apiKey.length);
 
-    // Historia limitada para rendimiento
-    const limitedHistory = history.slice(-2);
+    // Obtener y validar los datos de la solicitud
+    let requestData: ChatRequest;
+    try {
+      requestData = await request.json() as ChatRequest;
+      if (!requestData.message) {
+        console.error('Mensaje vacío en la solicitud');
+        return NextResponse.json({ 
+          error: 'El mensaje no puede estar vacío'
+        }, { status: 400 });
+      }
+    } catch (jsonError) {
+      console.error('Error al parsear JSON:', jsonError);
+      return NextResponse.json({ 
+        error: 'Formato de solicitud inválido'
+      }, { status: 400 });
+    }
+    
+    const { message, history = [] } = requestData;
+    console.log(`Mensaje para procesar: "${message.substring(0, 50)}..."`);
+    
+    // Formatear los mensajes para la API
+    const limitedHistory = history.slice(-3);
     const formattedMessages = limitedHistory.map((msg: ChatMessage) => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content,
@@ -112,66 +84,95 @@ export async function POST(request: Request): Promise<NextResponse> {
       
       Usa formato de texto simple, con ** para énfasis, NO uses HTML.
       Respuestas concisas de 3-4 frases para preguntas simples.
-      Usa - para listas y 💧 para consejos importantes.`
+      Usa viñetas con - para listas y 💧 para consejos importantes.`
     };
 
-    // Información de configuración
+    // Configuración de la solicitud a DeepSeek
     const apiEndpoint = 'https://api.deepseek.com/v1/chat/completions';
-    const timeoutMs = process.env.DEEPSEEK_TIMEOUT ? 
-      parseInt(process.env.DEEPSEEK_TIMEOUT) : 12000;
     
-    // Configuración para la solicitud con timeout
+    // Tiempo de espera de 20 segundos como solicitaste
+    const timeoutMs = 20000;
+    
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('TIMEOUT: Abortando solicitud a DeepSeek');
+      console.log('TIMEOUT: La solicitud a DeepSeek tomó demasiado tiempo (20s)');
       controller.abort();
     }, timeoutMs);
     
-    // Payload para la API
-    const apiPayload = {
+    const payload = {
       model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       messages: [
         systemMessage,
         ...formattedMessages,
         { role: 'user', content: message }
       ],
-      max_tokens: 300,
-      temperature: 0.7,
-      top_p: 0.9
+      max_tokens: 500,    // Aumentado para permitir respuestas más completas
+      temperature: 0.7,   // Balanceado para creatividad y precisión
+      top_p: 1,           // Permitir más variedad en las respuestas
+      presence_penalty: 0.1,  // Ligera penalización para repetición
+      frequency_penalty: 0.1  // Ligera penalización para repetición
     };
     
-    console.log('Enviando solicitud a DeepSeek API');
+    console.log('Enviando solicitud a DeepSeek API con timeout de 20 segundos...');
+    console.log('URL:', apiEndpoint);
+    console.log('Modelo:', payload.model);
     
     try {
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+          'Authorization': `Bearer ${apiKey}`
         },
-        body: JSON.stringify(apiPayload),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
       
       clearTimeout(timeoutId);
       
+      // Verificar la respuesta HTTP
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error(`ERROR: DeepSeek API respondió con ${response.status}`, errorData);
+        const statusCode = response.status;
+        let errorText = '';
         
-        // Usar respuesta de fallback
-        const fallbackResponse = getFallbackResponse(message);
-        return NextResponse.json({ message: fallbackResponse, status: "fallback" });
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = 'No se pudo leer el cuerpo de la respuesta';
+        }
+        
+        console.error(`ERROR: DeepSeek API respondió con ${statusCode}`, errorText);
+        
+        // Mensajes de error más detallados según el código de estado
+        if (statusCode === 401) {
+          return NextResponse.json({ 
+            error: 'Error de autenticación. La API key puede ser inválida o haber expirado.' 
+          }, { status: 500 });
+        } else if (statusCode === 429) {
+          return NextResponse.json({ 
+            error: 'Límite de velocidad excedido en la API de DeepSeek.' 
+          }, { status: 500 });
+        } else {
+          return NextResponse.json({ 
+            error: `Error del servidor: ${statusCode}. Por favor, intenta de nuevo más tarde.` 
+          }, { status: 500 });
+        }
       }
       
+      // Procesar la respuesta exitosa
       const data = await response.json();
-      console.log('Respuesta recibida correctamente de DeepSeek');
+      console.log('Respuesta recibida correctamente de DeepSeek API');
       
-      // Procesar respuesta
-      let generatedMessage = data.choices?.[0]?.message?.content || 
-        'No he podido generar una respuesta. ¿Podrías reformular tu pregunta sobre ahorro de agua?';
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        console.error('Formato de respuesta inválido de DeepSeek:', JSON.stringify(data).substring(0, 200));
+        return NextResponse.json({ 
+          error: 'La respuesta de la API no tiene el formato esperado.' 
+        }, { status: 500 });
+      }
       
-      // Limpiar formato HTML que pudiera colarse
+      let generatedMessage = data.choices[0].message.content;
+      
+      // Procesar la respuesta para limpiar cualquier formato HTML
       generatedMessage = generatedMessage
         .replace(/\*\*(.*?)\*\*/g, '$1')
         .replace(/<br>/g, ' ')
@@ -179,41 +180,42 @@ export async function POST(request: Request): Promise<NextResponse> {
         .replace(/<strong>(.*?)<\/strong>/g, '$1')
         .replace(/<[^>]*>/g, '');
       
-      // Guardar en caché (solo respuestas no fallback)
-      if (!generatedMessage.includes('No he podido generar') && generatedMessage.length < 1500) {
-        try {
+      // Almacenar en caché para futuras consultas
+      try {
+        if (generatedMessage.length < 1500) {
           const cacheKey = message.trim().toLowerCase().substring(0, 100);
           responseCache.set(cacheKey, generatedMessage);
           console.log('Respuesta guardada en caché');
-        } catch (cacheError) {
-          console.error('ERROR al guardar en caché:', cacheError);
         }
+      } catch (cacheError) {
+        console.error('ERROR al guardar en caché:', cacheError);
       }
       
       return NextResponse.json({ message: generatedMessage });
       
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      console.error('ERROR durante la solicitud a DeepSeek:', fetchError);
       
-      // Verificar si es un error de timeout
       const error = fetchError as Error;
+      console.error('ERROR durante la solicitud a DeepSeek:', error.name, error.message);
+      
       if (error.name === 'AbortError') {
-        console.log('La solicitud fue abortada por timeout');
+        return NextResponse.json({ 
+          error: 'La solicitud tomó demasiado tiempo y fue cancelada. Por favor, intenta con una pregunta más simple.' 
+        }, { status: 504 });
       }
       
-      // Usar respuesta de fallback
-      const fallbackResponse = getFallbackResponse(message);
-      return NextResponse.json({ message: fallbackResponse, status: "fallback" });
+      return NextResponse.json({ 
+        error: 'Error al conectar con el servicio de IA. Por favor, intenta de nuevo más tarde.' 
+      }, { status: 500 });
     }
     
   } catch (error) {
-    console.error('ERROR general en el procesamiento:', error);
+    const err = error as Error;
+    console.error('ERROR general en el procesamiento:', err.name, err.message, err.stack);
     
-    // Respuesta genérica de error
     return NextResponse.json({ 
-      message: "Disculpa, estoy teniendo problemas para procesar tu solicitud. Puedo ayudarte con consejos básicos de ahorro de agua como: cerrar el grifo mientras te cepillas los dientes, duchas más cortas o revisar fugas. ¿Te interesa alguno de estos temas?",
-      status: "error"
-    });
+      error: 'Ha ocurrido un error inesperado. Por favor, intenta de nuevo.' 
+    }, { status: 500 });
   }
 }
