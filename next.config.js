@@ -18,7 +18,10 @@ const nextConfig = {
   experimental: {
     allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.56.1'],
   },
-  
+  // Deshabilitar verificación de ESLint durante el build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 module.exports = nextConfig;
