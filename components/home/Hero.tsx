@@ -472,7 +472,7 @@ const Hero = () => {
       {/* Color de fondo para precarga - visible instantáneamente */}
       <div className="absolute inset-0 bg-gradient-to-b from-blue-900 to-blue-950 z-0"></div>
       
-            {/* Partículas flotantes (solo desktop) */}
+      {/* Partículas flotantes (solo desktop) */}
       {!isMobile && (
         <>
           <div className="particle blue-particle"></div>
@@ -560,8 +560,12 @@ const Hero = () => {
           {/* Línea decorativa mejorada para desktop */}
           <div className={`h-1 bg-gradient-to-r from-blue-300 via-blue-500 to-blue-300 mx-auto mb-4 sm:mb-6 md:mb-8 rounded-full ${!isMobile ? 'w-40 sm:w-48 shine-effect animate-pulse' : 'w-24 sm:w-32'}`} />
           
-          {/* Descripción con estilo mejorado para desktop */}
-          <p className={`text-sm sm:text-base md:text-lg text-black mb-6 sm:mb-8 md:mb-10 leading-relaxed max-w-3xl mx-auto px-2 sm:px-0 ${!isMobile ? 'font-normal' : 'font-light'}`}>
+          {/* Descripción con estilo mejorado - SOLO CAMBIO AQUÍ */}
+          <p className={`text-sm sm:text-base md:text-lg mb-6 sm:mb-8 md:mb-10 leading-relaxed max-w-3xl mx-auto px-2 sm:px-0 ${
+            !isMobile 
+              ? 'text-white font-medium bg-blue-900/30 p-4 rounded-lg backdrop-blur-sm border border-white/20 shadow-lg'
+              : 'text-white font-normal bg-blue-900/40 p-3 rounded-lg backdrop-blur-sm'
+          }`}>
             Ahorra dinero y contribuye al cuidado del planeta con nuestra solución 
             integral para el control y optimización del agua en tu hogar.
           </p>
