@@ -560,13 +560,16 @@ const Hero = () => {
           {/* Línea decorativa mejorada para desktop */}
           <div className={`h-1 bg-gradient-to-r from-blue-300 via-blue-500 to-blue-300 mx-auto mb-4 sm:mb-6 md:mb-8 rounded-full ${!isMobile ? 'w-40 sm:w-48 shine-effect animate-pulse' : 'w-24 sm:w-32'}`} />
           
-          {/* Descripción con estilo mejorado - SOLO CAMBIO AQUÍ */}
-          <p className={`text-sm sm:text-base md:text-lg mb-6 sm:mb-8 md:mb-10 leading-relaxed max-w-3xl mx-auto px-2 sm:px-0 ${
+          {/* Descripción con estilo mejorado y más visible */}
+          <p className={`text-sm sm:text-base md:text-lg mb-6 sm:mb-8 md:mb-10 leading-relaxed max-w-3xl mx-auto ${
             !isMobile 
-              ? 'text-white font-medium bg-blue-900/30 p-4 rounded-lg backdrop-blur-sm border border-white/20 shadow-lg'
-              : 'text-white font-normal bg-blue-900/40 p-3 rounded-lg backdrop-blur-sm'
-          }`}>
-            Ahorra dinero y contribuye al cuidado del planeta con nuestra solución 
+              ? 'text-white/95 font-medium p-5 bg-gradient-to-r from-blue-900/70 via-blue-800/70 to-blue-900/70 backdrop-blur-md rounded-lg shadow-lg'
+              : 'text-white/95 font-medium p-4 bg-gradient-to-r from-blue-900/80 via-blue-800/80 to-blue-900/80 rounded-lg backdrop-blur-sm'
+          }`} style={{
+            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            letterSpacing: '0.015em',
+          }}>
+            <span className="text-blue-200 font-semibold">Ahorra dinero</span> y <span className="text-blue-200 font-semibold">contribuye al cuidado del planeta</span> con nuestra solución 
             integral para el control y optimización del agua en tu hogar.
           </p>
           
@@ -587,21 +590,30 @@ const Hero = () => {
             </Link>
           </div>
           
-          {/* Contador de usuarios con animación flotante para desktop */}
-          <div className={`flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 ${!isMobile ? 'floating' : ''}`}>
+          {/* Contador de usuarios mejorado para mayor visibilidad */}
+          <div className={`flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 ${!isMobile ? 'floating' : ''}`}>
             <div className="flex -space-x-2 sm:-space-x-3">
               {[1, 2, 3].map(num => (
                 <div 
                   key={num}
-                  className={`w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-lg ${!isMobile ? 'animate-pulse' : ''}`}
+                  className={`w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-blue-300 to-blue-600 border-2 border-white flex items-center justify-center text-xs sm:text-sm font-bold text-white shadow-lg ${!isMobile ? 'animate-pulse' : ''}`}
+                  style={{
+                    boxShadow: '0 0 10px rgba(59, 130, 246, 0.4)'
+                  }}
                 >
                   {num}
                 </div>
               ))}
             </div>
-            <p className="text-white text-xs sm:text-sm mt-2 sm:mt-0">
-              Más de 1,000 hogares optimizando su consumo
-            </p>
+            <div className={`mt-3 sm:mt-0 px-4 py-2 rounded-full ${
+              !isMobile 
+                ? 'bg-blue-600/80 backdrop-blur-md shadow-lg border border-blue-300/30' 
+                : 'bg-blue-700/80 shadow-md'
+            }`}>
+              <p className="text-white text-xs sm:text-sm md:text-base font-medium" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                <span className="font-bold">Más de 1,000</span> hogares optimizando su consumo
+              </p>
+            </div>
           </div>
         </div>
       </div>
