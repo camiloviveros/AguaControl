@@ -245,7 +245,7 @@ export default function Home() {
             playsInline
             className="object-cover w-full h-full"
           >
-            <source src="/videos/publicidad.mp4" type="video/mp4" />
+            <source src="/videos/publicidad2.mov" type="video/mov" />
             Tu navegador no soporta la reproducción de video.
           </video>
           
