@@ -44,7 +44,7 @@ const Hero = () => {
     // Función para cargar imagen
     const loadImage = () => {
       const img = new Image();
-      img.src = isMobile ? '/images/water-hero-mobile2.webp' : '/images/water-hero.jpg';
+      img.src = isMobile ? '/images/water-hero-mobile2.webp' : '/images/water-hero.webp';
       
       img.onload = () => {
         // Marcar como cargada solo cuando realmente se ha cargado
