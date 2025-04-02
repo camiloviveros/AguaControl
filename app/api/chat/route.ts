@@ -78,7 +78,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     
     console.log(`Mensaje para procesar: "${message.substring(0, 50)}..."`);
     
-    // OPTIMIZACIÓN 1: Reducir la historia a solo 2 mensajes previos para mejor contexto
+   
     const limitedHistory = history.slice(-2);
     const formattedMessages = limitedHistory.map((msg: ChatMessage) => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
@@ -97,11 +97,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       Usa frases cortas y directas. No uses largas introducciones.`
     };
 
-    // Configuración de la solicitud a DeepSeek
     const apiEndpoint = 'https://api.deepseek.com/v1/chat/completions';
     
-    // OPTIMIZACIÓN 2: Configurar timeout a 9 segundos (dejando margen para procesamiento)
-    const timeoutMs = 9000;
+
+    const timeoutMs = 9500;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -111,7 +110,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     
     console.log(`Enviando solicitud a DeepSeek API con timeout de ${timeoutMs/1000} segundos...`);
     
-    // OPTIMIZACIÓN 3: Configurar parámetros para respuestas rápidas
+    
     const payload = {
       model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       messages: [
@@ -122,8 +121,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       max_tokens: 200,        // Suficiente para respuestas útiles pero no excesivas
       temperature: 0.7,       // Balanceado para creatividad y precisión
       top_p: 0.95,            // Ligeramente reducido para respuestas más directas
-      presence_penalty: 0.1,  // Ligera penalización para repetición
-      frequency_penalty: 0.1  // Ligera penalización para repetición
+      presence_penalty: 0.1,  
+      frequency_penalty: 0.1  
     };
     
     try {
