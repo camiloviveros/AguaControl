@@ -6,12 +6,12 @@ import Link from 'next/link';
 const Hero = () => {
   const [currentText, setCurrentText] = useState('');
   const [showCursor, setShowCursor] = useState(true);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [deviceWidth, setDeviceWidth] = useState(0);
   const parallaxRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   const fullText = 'Gestiona tu consumo de agua de manera inteligente';
   const typingSpeed = 60;
@@ -39,38 +39,36 @@ const Hero = () => {
     return () => window.removeEventListener('resize', checkDeviceSize);
   }, []);
 
-  // Precarga de imagen optimizada
+  // Manejo del video
   useEffect(() => {
-    // Función para cargar imagen
-    const loadImage = () => {
-      const img = new Image();
-      img.src = isMobile ? '/images/water-hero-mobile.webp' : '/images/water-hero-des.webp';
-      
-      img.onload = () => {
-        // Marcar como cargada solo cuando realmente se ha cargado
-        setImageLoaded(true);
+    // Si el video está cargado y existe la referencia
+    if (videoRef.current) {
+      // Evento para cuando el video esté listo
+      const handleVideoLoaded = () => {
+        setVideoLoaded(true);
       };
       
-      // Si la imagen ya está en caché, se cargará instantáneamente
-      if (img.complete) {
-        setImageLoaded(true);
+      videoRef.current.addEventListener('loadeddata', handleVideoLoaded);
+      
+      // Si el video está en caché y ya está cargado
+      if (videoRef.current.readyState >= 2) {
+        setVideoLoaded(true);
       }
       
       return () => {
-        img.onload = null;
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadeddata', handleVideoLoaded);
+        }
       };
-    };
+    }
     
-    // Cargar imagen inmediatamente
-    loadImage();
-    
-    // Si después de 500ms no se ha cargado, mostrar de todos modos para evitar pantalla en blanco
+    // Timeout de seguridad para mostrar el contenido incluso si hay problemas con el video
     const timer = setTimeout(() => {
-      setImageLoaded(true);
-    }, 500);
+      setVideoLoaded(true);
+    }, 1000);
     
     return () => clearTimeout(timer);
-  }, [isMobile]);
+  }, []);
 
   // Efecto de máquina de escribir
   const typeEffect = useCallback(() => {
@@ -161,11 +159,11 @@ const Hero = () => {
       const style = document.createElement('style');
       style.innerHTML = `
         @media (min-width: 768px) {
-          .desktop-image-filter::before {
+          .desktop-video-filter::before {
             content: '';
             position: absolute;
             inset: 0;
-            background-color: rgba(0, 0, 0, 0.2);
+            background-color: rgba(0, 0, 0, 0.3);
             z-index: 2;
             pointer-events: none;
           }
@@ -277,21 +275,6 @@ const Hero = () => {
             }
           }
           
-          .particle {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
-            animation: drift 10s infinite linear;
-            box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
-          }
-          
-          .blue-particle {
-            background: rgba(96, 165, 250, 0.6);
-            box-shadow: 0 0 5px rgba(59, 130, 246, 0.9);
-          }
-          
           .light-effect {
             position: absolute;
             top: 0;
@@ -307,47 +290,6 @@ const Hero = () => {
           @keyframes pulse-light {
             0% { opacity: 0.5; }
             100% { opacity: 1; }
-          }
-          
-          .water-drops {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            pointer-events: none;
-            z-index: 1;
-          }
-          
-          .water-drop {
-            position: absolute;
-            width: 25px;
-            height: 25px;
-            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(147, 197, 253, 0.3));
-            border-radius: 50%;
-            filter: blur(1px);
-            opacity: 0;
-            transform: scale(0);
-            animation: drop-fall 10s infinite linear;
-          }
-          
-          .water-drop:nth-child(1) {
-            top: -30px;
-            left: 20%;
-            animation-delay: 0s;
-          }
-          
-          .water-drop:nth-child(2) {
-            top: -30px;
-            left: 65%;
-            animation-delay: 3s;
-          }
-          
-          .water-drop:nth-child(3) {
-            top: -30px;
-            left: 40%;
-            animation-delay: 7s;
           }
           
           .cloud-effect {
@@ -398,65 +340,6 @@ const Hero = () => {
               opacity: 0.65;
             }
           }
-          
-          .particle:nth-child(1) {
-            top: 15%;
-            left: 10%;
-            animation-duration: 15s;
-          }
-          
-          .particle:nth-child(2) {
-            top: 25%;
-            right: 15%;
-            animation-duration: 18s;
-            animation-delay: 1s;
-          }
-          
-          .particle:nth-child(3) {
-            bottom: 20%;
-            left: 20%;
-            animation-duration: 12s;
-            animation-delay: 2s;
-          }
-          
-          .particle:nth-child(4) {
-            top: 40%;
-            right: 25%;
-            animation-duration: 20s;
-            animation-delay: 0.5s;
-          }
-          
-          .particle:nth-child(5) {
-            bottom: 35%;
-            left: 40%;
-            animation-duration: 16s;
-            animation-delay: 2.5s;
-          }
-          
-          @keyframes drift {
-            0% {
-              transform: translateY(0) translateX(0);
-              opacity: 0;
-            }
-            20% {
-              opacity: 0.8;
-            }
-            80% {
-              opacity: 0.8;
-            }
-            100% {
-              transform: translateY(-200px) translateX(100px);
-              opacity: 0;
-            }
-          }
-          
-          /* Mejora de nitidez para la imagen en desktop */
-          .desktop-sharp-image {
-            image-rendering: -webkit-optimize-contrast;
-            transform: translateZ(0);
-            backface-visibility: hidden;
-            box-shadow: inset 0 0 100px rgba(30, 58, 138, 0.2); /* Viñeteado azulado más sutil */
-          }
         }
       `;
       document.head.appendChild(style);
@@ -472,54 +355,39 @@ const Hero = () => {
       {/* Color de fondo para precarga - visible instantáneamente */}
       <div className="absolute inset-0 bg-gradient-to-b from-blue-900 to-blue-950 z-0"></div>
       
-      {/* Partículas flotantes (solo desktop) */}
-      {!isMobile && (
-        <>
-          <div className="particle blue-particle"></div>
-          <div className="particle blue-particle"></div>
-          <div className="particle blue-particle"></div>
-          <div className="particle small-particle"></div>
-          <div className="particle small-particle"></div>
-          <div className="water-drops">
-            <div className="water-drop"></div>
-            <div className="water-drop"></div>
-            <div className="water-drop"></div>
-          </div>
-          <div className="light-effect"></div>
-        </>
-      )}
-      
-      {/* Contenedor de parallax con imagen real */}
+      {/* Contenedor de parallax con video de fondo */}
       <div 
         ref={parallaxRef}
-        className={`absolute inset-0 transition-opacity duration-500 overflow-hidden ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 transition-opacity duration-500 overflow-hidden ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
         style={{
           willChange: 'transform',
           zIndex: 1
         }}
       >
-        {/* Imagen de fondo - desktop o mobile según dispositivo */}
-        <div 
-          ref={imageRef}
-          className={`absolute inset-0 w-full h-full bg-cover bg-center desktop-image-filter ${!isMobile ? 'desktop-sharp-image' : ''}`}
-          style={{
-            backgroundImage: isMobile 
-              ? "url('/images/water-hero-mobile.webp')" 
-              : "url('/images/water-hero-des.webp')",
-            backgroundSize: "cover",
-            backgroundPosition: isMobile 
-              ? (deviceWidth <= 375 ? "center 40%" : "center 35%") 
-              : "center center",
-            // Filtro diferenciado para desktop y mobile
-            filter: isMobile
-              ? 'brightness(1.0) contrast(1.05) saturate(1.05)'
-              : 'brightness(0.8) contrast(1.3) saturate(0.95) hue-rotate(-15deg) sepia(0.25)', // Azul desvanecido más nítido pero más claro para desktop
-            // No aplicamos transform aquí para evitar bugs de parallax
-            willChange: 'auto'
-          }}
-        />
+        {/* Video de fondo */}
+        <div className="absolute inset-0 w-full h-full overflow-hidden desktop-video-filter">
+          <video 
+            ref={videoRef}
+            className="absolute w-full h-full object-cover"
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              objectPosition: isMobile 
+                ? (deviceWidth <= 375 ? "center 40%" : "center 35%") 
+                : "center center",
+              // No aplicamos transform aquí para evitar bugs de parallax
+              willChange: 'auto'
+            }}
+          >
+            <source src="/videos/publicidad.mp4" type="video/mp4" />
+            {/* Fallback en caso de que el navegador no soporte el video */}
+            Tu navegador no soporta videos HTML5.
+          </video>
+        </div>
         
-        {/* Efectos de nubes sobre la imagen (solo desktop) */}
+        {/* Efectos de nubes sobre el video (solo desktop) */}
         {!isMobile && (
           <>
             <div className="cloud-effect top-left"></div>
@@ -581,7 +449,7 @@ const Hero = () => {
           </p>
           
           {/* Botones con mejor responsividad y efectos visuales para desktop */}
-          <div className={`flex flex-col items-center justify-center gap-3 sm:gap-4 max-w-xs sm:max-w-md mx-auto mb-6 sm:mb-8 md:mb-10 ${!isMobile ? 'sm:flex-row' : ''}`}>
+          <div className={`flex flex-col items-center justify-center gap-3 sm:gap-4 max-w-xs sm:max-w-md mx-auto ${!isMobile ? 'sm:flex-row' : ''}`}>
             <Link 
               href="#calculator" 
               className={`w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl text-sm sm:text-base transform scale-90 sm:scale-100 hover:scale-95 sm:hover:scale-105 text-center ${!isMobile ? 'glow-button hover:from-blue-500 hover:to-blue-800' : 'hover:from-blue-700 hover:to-blue-800'}`}
@@ -595,31 +463,6 @@ const Hero = () => {
             >
               Ver consejos
             </Link>
-          </div>
-          
-          {/* Contador de usuarios sin fondos, solo con efectos de texto */}
-          <div className={`flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 ${!isMobile ? 'floating' : ''}`}>
-            <div className="flex -space-x-2 sm:-space-x-3">
-              {[1, 2, 3].map(num => (
-                <div 
-                  key={num}
-                  className={`w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-white flex items-center justify-center text-xs sm:text-sm font-bold text-white ${!isMobile ? 'animate-pulse' : ''}`}
-                  style={{
-                    boxShadow: '0 0 15px rgba(59, 130, 246, 0.6), 0 0 30px rgba(37, 99, 235, 0.3)'
-                  }}
-                >
-                  {num}
-                </div>
-              ))}
-            </div>
-            <p className="text-white text-sm sm:text-base md:text-lg font-bold mt-2 sm:mt-0" style={{ 
-              textShadow: '0 2px 4px rgba(0,0,0,0.9), 0 4px 8px rgba(0,0,0,0.8), 0 0 10px rgba(59,130,246,0.5)',
-              letterSpacing: '0.02em'
-            }}>
-              Más de <span className="text-blue-100" style={{
-                textShadow: '0 0 10px rgba(147,197,253,0.9), 0 2px 4px rgba(0,0,0,0.8)'
-              }}>1,000 hogares</span> optimizando su consumo
-            </p>
           </div>
         </div>
       </div>
