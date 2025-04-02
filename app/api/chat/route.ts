@@ -11,7 +11,7 @@ interface ChatRequest {
   history: ChatMessage[];
 }
 
-// Caché renovada con mejor gestión
+// Caché mejorada con mejor gestión
 let responseCache = new Map<string, string>();
 let lastCacheCleanup = Date.now();
 
@@ -65,10 +65,21 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
     
     const { message, history = [] } = requestData;
+    
+    // Verificar caché primero - para respuestas ultrarrápidas
+    const cacheKey = message.trim().toLowerCase().substring(0, 100);
+    if (responseCache.has(cacheKey)) {
+      console.log('Respuesta encontrada en caché');
+      return NextResponse.json({ 
+        message: responseCache.get(cacheKey),
+        cached: true 
+      });
+    }
+    
     console.log(`Mensaje para procesar: "${message.substring(0, 50)}..."`);
     
-    // Formatear los mensajes para la API
-    const limitedHistory = history.slice(-3);
+    // OPTIMIZACIÓN 1: Reducir la historia a solo 2 mensajes previos para mejor contexto
+    const limitedHistory = history.slice(-2);
     const formattedMessages = limitedHistory.map((msg: ChatMessage) => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content,
@@ -76,29 +87,31 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const systemMessage = {
       role: 'system',
-      content: `Eres un asistente especializado en gestión y ahorro de consumo de agua. 
+      content: `Eres un asistente conciso especializado en gestión y ahorro de consumo de agua. 
       Ayudas a reducir el consumo, interpretar facturas, detectar fugas y optimizar el uso del agua.
       
       RESPONDE SOLO sobre agua, consumo, ahorro, facturación y temas relacionados.
       Si preguntan sobre otros temas, recuerda amablemente que eres especialista en agua.
       
-      Usa formato de texto simple, con ** para énfasis, NO uses HTML.
-      Respuestas concisas de 3-4 frases para preguntas simples.
-      Usa viñetas con - para listas y 💧 para consejos importantes.`
+      IMPORTANTE: Sé breve. Limita tus respuestas a 3-4 frases máximo.
+      Usa frases cortas y directas. No uses largas introducciones.`
     };
 
     // Configuración de la solicitud a DeepSeek
     const apiEndpoint = 'https://api.deepseek.com/v1/chat/completions';
     
-    // Tiempo de espera de 20 segundos como solicitaste
-    const timeoutMs = 20000;
+    // OPTIMIZACIÓN 2: Configurar timeout a 9 segundos (dejando margen para procesamiento)
+    const timeoutMs = 9000;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.log('TIMEOUT: La solicitud a DeepSeek tomó demasiado tiempo (20s)');
+      console.log('TIMEOUT: La solicitud a DeepSeek tomó demasiado tiempo (9s)');
       controller.abort();
     }, timeoutMs);
     
+    console.log(`Enviando solicitud a DeepSeek API con timeout de ${timeoutMs/1000} segundos...`);
+    
+    // OPTIMIZACIÓN 3: Configurar parámetros para respuestas rápidas
     const payload = {
       model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       messages: [
@@ -106,16 +119,12 @@ export async function POST(request: Request): Promise<NextResponse> {
         ...formattedMessages,
         { role: 'user', content: message }
       ],
-      max_tokens: 500,    // Aumentado para permitir respuestas más completas
-      temperature: 0.7,   // Balanceado para creatividad y precisión
-      top_p: 1,           // Permitir más variedad en las respuestas
+      max_tokens: 200,        // Suficiente para respuestas útiles pero no excesivas
+      temperature: 0.7,       // Balanceado para creatividad y precisión
+      top_p: 0.95,            // Ligeramente reducido para respuestas más directas
       presence_penalty: 0.1,  // Ligera penalización para repetición
       frequency_penalty: 0.1  // Ligera penalización para repetición
     };
-    
-    console.log('Enviando solicitud a DeepSeek API con timeout de 20 segundos...');
-    console.log('URL:', apiEndpoint);
-    console.log('Modelo:', payload.model);
     
     try {
       const response = await fetch(apiEndpoint, {
@@ -172,18 +181,13 @@ export async function POST(request: Request): Promise<NextResponse> {
       
       let generatedMessage = data.choices[0].message.content;
       
-      // Procesar la respuesta para limpiar cualquier formato HTML
+      // OPTIMIZACIÓN 4: Proceso de limpieza rápido solo para HTML
       generatedMessage = generatedMessage
-        .replace(/\*\*(.*?)\*\*/g, '$1')
-        .replace(/<br>/g, ' ')
-        .replace(/<br><br>/g, ' ')
-        .replace(/<strong>(.*?)<\/strong>/g, '$1')
         .replace(/<[^>]*>/g, '');
       
       // Almacenar en caché para futuras consultas
       try {
-        if (generatedMessage.length < 1500) {
-          const cacheKey = message.trim().toLowerCase().substring(0, 100);
+        if (generatedMessage.length < 1000) {
           responseCache.set(cacheKey, generatedMessage);
           console.log('Respuesta guardada en caché');
         }

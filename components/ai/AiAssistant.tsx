@@ -104,28 +104,28 @@ const MessageBubble: React.FC<{ message: Message, index: number }> = ({ message,
   );
 };
 
-// Base de conocimientos para respuestas rápidas sobre agua
+// Base de conocimientos para respuestas rápidas sobre agua - MEJORADO
 const getQuickResponse = (query: string): string | null => {
   const normalizedQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   
-  // Respuestas rápidas para preguntas comunes sobre agua
+  // Respuestas rápidas más completas y útiles
   const waterResponses: Record<string, string> = {
-    "hola": "Hola, soy tu asistente especializado en agua. Procesando tu consulta...",
-    "fugas": "Analizando soluciones para detectar y reparar fugas de agua...",
-    "ahorrar agua": "Preparando consejos para reducir el consumo de agua...",
-    "consumo": "Calculando datos de consumo promedio y cómo reducirlo...",
-    "factura": "Analizando información sobre la facturación de agua...",
-    "ducha": "Buscando consejos de ahorro para el uso de la ducha...",
-    "grifo": "Recopilando información sobre grifos eficientes...",
-    "tuberia": "Procesando información sobre mantenimiento de tuberías...",
-    "riego": "Preparando consejos sobre riego eficiente...",
-    "sanitario": "Analizando opciones para reducir el consumo en el sanitario...",
-    "wc": "Calculando el consumo de agua en el inodoro y cómo reducirlo...",
-    "recoleccion": "Buscando información sobre recolección de agua de lluvia...",
-    "lavadora": "Preparando consejos para uso eficiente de la lavadora...",
-    "lavar": "Analizando métodos eficientes de lavado...",
-    "cisternas": "Procesando información sobre mantenimiento de cisternas...",
-    "potable": "Buscando información sobre el agua potable y su conservación..."
+    "hola": "Hola, soy tu asistente especializado en agua. ¿En qué puedo ayudarte con tu consumo de agua?",
+    "fugas": "Buscando información sobre detección y reparación de fugas. Una fuga pequeña puede desperdiciar 90L diarios.",
+    "ahorrar agua": "Procesando consejos de ahorro para tu hogar. La ducha corta, cerrar grifos y electrodomésticos eficientes son clave.",
+    "consumo": "Analizando datos de consumo promedio. Una persona usa 100-150L al día; una familia de 4, unos 400-600L diarios.",
+    "factura": "Revisando información sobre facturación de agua. El precio promedio está entre 2-3€/m³ dependiendo de la zona.",
+    "ducha": "Calculando ahorro en duchas. Reducir de 10 a 5 minutos ahorra 45L por ducha. Un cabezal eficiente reduce 50% más.",
+    "grifo": "Procesando datos sobre grifos. Los aireadores reducen el consumo 50% manteniendo la sensación de presión.",
+    "tuberia": "Analizando información sobre mantenimiento de tuberías. La revisión anual previene fugas graves.",
+    "riego": "Buscando consejos de riego eficiente. El riego por goteo ahorra hasta 70% comparado con métodos tradicionales.",
+    "sanitario": "Calculando ahorro en inodoros. Los sistemas de doble descarga (3L/6L) ahorran 50% frente a los tradicionales (9-12L).",
+    "wc": "Procesando datos sobre consumo en inodoros. Una cisterna con fuga puede perder 400L diarios sin ser notada.",
+    "recoleccion": "Analizando sistemas de recolección pluvial. Pueden cubrir hasta 50% de necesidades no potables en zonas lluviosas.",
+    "lavadora": "Buscando consejos para lavadoras. Usar programas ECO y carga completa ahorra 30% de agua y 40% de energía.",
+    "lavar": "Procesando métodos eficientes de lavado. Llenar el fregadero en lugar de dejar correr el agua ahorra 50L por lavado.",
+    "cisternas": "Analizando mantenimiento de cisternas. Las modernas usan 4.5L vs 12L de las antiguas por cada descarga.",
+    "potable": "Buscando información sobre agua potable. El tratamiento adecuado garantiza su seguridad para consumo humano."
   };
 
   for (const [key, response] of Object.entries(waterResponses)) {
@@ -241,21 +241,24 @@ const AiAssistant: React.FC = () => {
     }
   };
 
-  // API handler optimizado con timeout y mejor manejo de errores
+  // API handler optimizado con timeout y mejor manejo de errores - OPTIMIZADO
   const callDeepSeekApi = async (userMessage: string): Promise<string> => {
     try {
-      // Reducir historia a solo 3 mensajes recientes
+      // Reducir historia a solo 2 mensajes recientes para mejor contexto
       const recentMessages = messages
-        .filter(msg => !msg.isTemporary) // No enviar mensajes temporales
-        .slice(-3)
+        .filter(msg => !msg.isTemporary)
+        .slice(-2)
         .map(msg => ({
           role: msg.role,
           content: msg.content
         }));
 
-      // Usar AbortController para timeout - usar valor mayor (15 segundos)
-      const timeoutMs = 15000; // 15 segundos máximo
+      // Usar AbortController para timeout
       const controller = new AbortController();
+      
+      // Timeout de 9.5 segundos (deja margen para el procesamiento)
+      const timeoutMs = 9500;
+      
       let timeoutId: NodeJS.Timeout | null = null;
       
       // Crear una promesa que se resuelva cuando se complete la solicitud o ocurra un timeout
@@ -274,7 +277,6 @@ const AiAssistant: React.FC = () => {
       // Crear una promesa de timeout que rechace después de timeoutMs
       const timeoutPromise = new Promise<Response>((_, reject) => {
         timeoutId = setTimeout(() => {
-          // En lugar de abortar directamente, enviamos un mensaje personalizado
           reject(new Error('Tiempo de espera agotado'));
           controller.abort();
         }, timeoutMs);
@@ -302,17 +304,13 @@ const AiAssistant: React.FC = () => {
     } catch (error: any) {
       // Mejorar el manejo de errores para evitar mensajes en la consola
       // AbortError es esperado y no debe ser considerado un error grave
-      if (error.name === 'AbortError') {
+      if (error.name === 'AbortError' || error.message === 'Tiempo de espera agotado') {
         console.log('La solicitud fue cancelada debido al timeout');
-        return 'Lo siento, estoy tardando más de lo normal en procesar tu consulta. Por favor, intenta con una pregunta más simple.';
-      }
-      
-      if (error.message === 'Tiempo de espera agotado') {
-        return 'Lo siento, no he podido obtener una respuesta a tiempo. Por favor, intenta con una pregunta más simple.';
+        return 'Lo siento, estoy tardando más de lo normal en procesar tu consulta. Por favor, intenta con una pregunta más simple o específica sobre ahorro de agua.';
       }
       
       console.error('Error al llamar a la API:', error);
-      return 'Lo siento, ha ocurrido un error al procesar tu pregunta. Por favor, inténtalo de nuevo.';
+      return 'Lo siento, ha ocurrido un error al procesar tu pregunta. Por favor, inténtalo de nuevo con una consulta diferente sobre ahorro o consumo de agua.';
     }
   };
 
