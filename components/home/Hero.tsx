@@ -544,7 +544,7 @@ const Hero = () => {
         <div className="max-w-4xl mx-auto">
           {/* Título con efecto de máquina de escribir */}
           <div className="mb-4 sm:mb-8 md:mb-10 px-2 sm:px-0">
-            <h1           className={`font-serif text-white tracking-tight leading-snug sm:leading-normal md:leading-relaxed text-2xl sm:text-4xl md:text-5xl lg:text-6xl ${!isMobile ? 'hero-title-enhanced bg-clip-text' : 'title-shadow'}`}>
+            <h1 className={`font-serif text-white tracking-tight leading-snug sm:leading-normal md:leading-relaxed text-2xl sm:text-4xl md:text-5xl lg:text-6xl ${!isMobile ? 'hero-title-enhanced bg-clip-text' : 'title-shadow'}`}>
               {currentText}
               <span 
                 className={`inline-block w-1.5 h-[0.8em] sm:h-[1em] bg-blue-300 ml-1 align-middle ${showCursor ? 'opacity-100' : 'opacity-0'}`}
@@ -561,7 +561,7 @@ const Hero = () => {
           <div className={`h-1 bg-gradient-to-r from-blue-300 via-blue-500 to-blue-300 mx-auto mb-4 sm:mb-6 md:mb-8 rounded-full ${!isMobile ? 'w-40 sm:w-48 shine-effect animate-pulse' : 'w-24 sm:w-32'}`} />
           
           {/* Descripción con estilo mejorado para desktop */}
-          <p className={`text-sm sm:text-base md:text-lg text-white mb-6 sm:mb-8 md:mb-10 leading-relaxed max-w-3xl mx-auto px-2 sm:px-0 ${!isMobile ? 'opacity-95 font-normal' : 'opacity-95 font-light drop-shadow-lg'}`}>
+          <p className={`text-sm sm:text-base md:text-lg text-black mb-6 sm:mb-8 md:mb-10 leading-relaxed max-w-3xl mx-auto px-2 sm:px-0 ${!isMobile ? 'font-normal' : 'font-light'}`}>
             Ahorra dinero y contribuye al cuidado del planeta con nuestra solución 
             integral para el control y optimización del agua en tu hogar.
           </p>
