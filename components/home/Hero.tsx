@@ -14,8 +14,8 @@ const Hero = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   const fullText = 'Gestiona tu consumo de agua de manera inteligente';
-  const typingSpeed = 60;
-  const erasingSpeed = 30;
+  const typingSpeed = 120; // Más lento (valor más alto = más lento)
+  const erasingSpeed = 60; // Más lento (valor más alto = más lento)
   const pauseAfterTyping = 2000;
   const pauseAfterErasing = 600;
   
