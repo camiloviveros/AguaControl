@@ -358,10 +358,11 @@ const Hero = () => {
       {/* Contenedor de parallax con video de fondo */}
       <div 
         ref={parallaxRef}
-        className={`absolute inset-0 transition-opacity duration-500 overflow-hidden ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
+        className="absolute inset-0 transition-opacity duration-500 overflow-hidden"
         style={{
           willChange: 'transform',
-          zIndex: 1
+          zIndex: 1,
+          opacity: videoLoaded ? 1 : 0
         }}
       >
         {/* Video de fondo */}
@@ -377,6 +378,7 @@ const Hero = () => {
               objectPosition: isMobile 
                 ? (deviceWidth <= 375 ? "center 40%" : "center 35%") 
                 : "center center",
+              filter: !isMobile ? 'brightness(0.85) contrast(1.1)' : 'brightness(0.9)',
               // No aplicamos transform aquí para evitar bugs de parallax
               willChange: 'auto'
             }}
