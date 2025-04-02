@@ -504,8 +504,8 @@ const Hero = () => {
           className={`absolute inset-0 w-full h-full bg-cover bg-center desktop-image-filter ${!isMobile ? 'desktop-sharp-image' : ''}`}
           style={{
             backgroundImage: isMobile 
-              ? "url('/images/water-hero-mobile2.webp')" 
-              : "url('/images/water-hero.jpg')",
+              ? "url('/images/water-hero-mobile.webp')" 
+              : "url('/images/water-hero-des.webp')",
             backgroundSize: "cover",
             backgroundPosition: isMobile 
               ? (deviceWidth <= 375 ? "center 40%" : "center 35%") 
